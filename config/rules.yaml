@@ -1,0 +1,30 @@
+rules:
+  port_scan:
+    enabled: true
+    severity: high
+    window_seconds: 60
+    threshold: 10  # distinct dst_port count from same src_ip
+
+  beaconing:
+    enabled: true
+    severity: medium
+    window_seconds: 300
+    min_events: 5
+    jitter_threshold: 1.5  # max std-dev of inter-arrival (seconds)
+
+  flooding:
+    enabled: true
+    severity: critical
+    window_seconds: 10
+    threshold: 50  # connections from same src_ip
+
+  lateral_movement:
+    enabled: true
+    severity: high
+    window_seconds: 120
+    threshold: 3  # distinct dst_ip from same src_ip
+
+containment:
+  auto_block_severity:
+    - high
+    - critical

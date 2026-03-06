@@ -1,0 +1,162 @@
+# ─────────────────────────────────────────────────────
+# Mini SIEM Cyber Range — Docker Compose
+# ─────────────────────────────────────────────────────
+# Network:  siem_net  10.10.0.0/24
+# Services: web-server, auth-server, db-server, attacker, siem-core
+# Shared:   logs volume mounted at /logs in all service containers
+
+services:
+  # ── Web Server (HTTP) ──────────────────────────────
+  web-server:
+    build: ./services/web_server
+    container_name: web-server
+    networks:
+      siem_net:
+        ipv4_address: 10.10.0.10
+    volumes:
+      - logs:/logs
+    environment:
+      - SERVICE_PORT=80
+      - LOG_PATH=/logs/web.log
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:80/health')" ]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # ── Auth Server (SSH sim) ──────────────────────────
+  auth-server:
+    build: ./services/auth_server
+    container_name: auth-server
+    networks:
+      siem_net:
+        ipv4_address: 10.10.0.11
+    volumes:
+      - logs:/logs
+    environment:
+      - SERVICE_PORT=22
+      - LOG_PATH=/logs/auth.log
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:22/health')" ]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # ── DB Server (MySQL sim) ──────────────────────────
+  db-server:
+    build: ./services/db_server
+    container_name: db-server
+    networks:
+      siem_net:
+        ipv4_address: 10.10.0.12
+    volumes:
+      - logs:/logs
+    environment:
+      - SERVICE_PORT=3306
+      - LOG_PATH=/logs/db.log
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:3306/health')" ]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # ── Attacker: Port Scan (idle until invoked) ────────
+  attacker-portscan:
+    build: ./services/attacker
+    container_name: attacker-portscan
+    networks:
+      siem_net:
+        ipv4_address: 10.10.0.100
+    environment:
+      - SCENARIO=port_scan
+    depends_on:
+      - web-server
+      - auth-server
+      - db-server
+
+  # ── Attacker: Flood (idle until invoked) ───────────
+  attacker-flood:
+    build: ./services/attacker
+    container_name: attacker-flood
+    networks:
+      siem_net:
+        ipv4_address: 10.10.0.102
+    environment:
+      - SCENARIO=flood
+    depends_on:
+      - web-server
+      - auth-server
+      - db-server
+
+  # ── Attacker: Beaconing (idle until invoked) ───────
+  attacker-beacon:
+    build: ./services/attacker
+    container_name: attacker-beacon
+    networks:
+      siem_net:
+        ipv4_address: 10.10.0.103
+    environment:
+      - SCENARIO=beaconing
+    depends_on:
+      - web-server
+      - auth-server
+      - db-server
+
+  # ── Attacker: Lateral Movement (idle until invoked) ─
+  attacker-lateral:
+    build: ./services/attacker
+    container_name: attacker-lateral
+    networks:
+      siem_net:
+        ipv4_address: 10.10.0.104
+    environment:
+      - SCENARIO=lateral
+    depends_on:
+      - web-server
+      - auth-server
+      - db-server
+
+  # ── Normal Traffic (idle until invoked) ────────────
+  normal-traffic:
+    build: ./services/normal_traffic
+    container_name: normal-traffic
+    networks:
+      siem_net:
+        ipv4_address: 10.10.0.101
+    depends_on:
+      - web-server
+      - auth-server
+      - db-server
+
+  # ── SIEM Core + Dashboard ─────────────────────────
+  siem-core:
+    build: .
+    container_name: siem-core
+    networks:
+      siem_net:
+        ipv4_address: 10.10.0.50
+    ports:
+      - "5050:5000"
+    volumes:
+      - logs:/logs
+      - ./data:/app/data
+      - ./config:/app/config
+    environment:
+      - LOG_DIR=/logs
+      - CONFIG_PATH=/app/config/rules.yaml
+      - DATA_DIR=/app/data
+    depends_on:
+      - web-server
+      - auth-server
+      - db-server
+
+volumes:
+  logs:
+
+
+networks:
+  siem_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.10.0.0/24

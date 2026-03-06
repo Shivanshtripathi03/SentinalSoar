@@ -1,0 +1,23 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+venv/
+.env/
+
+# IDE
+.vscode/
+.idea/
+
+# Runtime data (regenerated on each run)
+data/alerts.json
+data/blocklist.json

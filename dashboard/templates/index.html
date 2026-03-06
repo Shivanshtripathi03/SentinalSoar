@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mini SIEM Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  </head>
+  <body>
+    <header>
+      <div class="header-content">
+        <div class="header-left">
+          <div class="logo-icon">&#x1f6e1;</div>
+          <div>
+            <h1>Mini SIEM</h1>
+            <span class="header-subtitle"
+              >Security Information & Event Management</span
+            >
+          </div>
+        </div>
+        <div class="header-right">
+          <span class="live-badge"><span class="live-dot"></span> LIVE</span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <!-- Summary Cards -->
+      <section class="summary-cards">
+        <div class="card">
+          <div class="card-icon card-icon-events">&#x1f4ca;</div>
+          <div class="card-info">
+            <span class="card-label">Total Events</span>
+            <span class="card-value" id="stat-events">0</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-icon card-icon-alerts">&#x1f6a8;</div>
+          <div class="card-info">
+            <span class="card-label">Alerts</span>
+            <span class="card-value" id="stat-alerts">0</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-icon card-icon-blocked">&#x1f6ab;</div>
+          <div class="card-info">
+            <span class="card-label">Blocked IPs</span>
+            <span class="card-value" id="stat-blocked">0</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-icon card-icon-rules">&#x2699;</div>
+          <div class="card-info">
+            <span class="card-label">Active Rules</span>
+            <span class="card-value">4</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Charts Row -->
+      <section class="charts-row">
+        <div class="chart-panel chart-wide">
+          <div class="chart-header">
+            <h3>Events Over Time</h3>
+            <div class="chart-controls">
+              <label for="logRange" class="range-label"
+                >Last <span id="rangeValue">200</span> logs</label
+              >
+              <input
+                type="range"
+                id="logRange"
+                min="20"
+                max="1000"
+                value="200"
+                step="10"
+              />
+            </div>
+          </div>
+          <div class="chart-body">
+            <canvas id="timeseriesChart"></canvas>
+          </div>
+        </div>
+        <div class="chart-panel chart-narrow">
+          <div class="chart-header">
+            <h3>Service Distribution</h3>
+            <span class="chart-hint">Log volume by type</span>
+          </div>
+          <div class="chart-body chart-body-donut">
+            <canvas id="distributionChart"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- Alert Summary -->
+      <section class="alert-summary-section">
+        <div class="panel">
+          <div class="panel-header">
+            <h2>Alert Summary</h2>
+          </div>
+          <div class="table-wrapper">
+            <table id="alert-summary-table">
+              <thead>
+                <tr>
+                  <th>Rule</th>
+                  <th>Severity</th>
+                  <th>Events</th>
+                </tr>
+              </thead>
+              <tbody id="alert-summary-body">
+                <tr>
+                  <td colspan="3" class="empty">No alerts yet</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tab Navigation -->
+      <nav class="tabs">
+        <button class="tab active" data-tab="logs">Live Logs</button>
+        <button class="tab" data-tab="alerts">Alerts</button>
+        <button class="tab" data-tab="blocklist">Blocked IPs</button>
+      </nav>
+
+      <!-- Live Logs Tab -->
+      <section id="tab-logs" class="tab-content active">
+        <div class="panel">
+          <div class="panel-header">
+            <h2>Real-Time Log Stream</h2>
+            <div class="controls">
+              <input
+                type="text"
+                id="log-filter"
+                placeholder="Filter by IP, action, or source..."
+              />
+              <select id="log-source-filter">
+                <option value="">All Sources</option>
+                <option value="web">Web</option>
+                <option value="auth">Auth</option>
+                <option value="db">DB</option>
+              </select>
+            </div>
+          </div>
+          <div class="table-wrapper">
+            <table id="log-table">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Source</th>
+                  <th>Src IP</th>
+                  <th>Dst IP:Port</th>
+                  <th>Action</th>
+                  <th>Status</th>
+                  <th>Detail</th>
+                </tr>
+              </thead>
+              <tbody id="log-body">
+                <tr>
+                  <td colspan="7" class="empty">Waiting for events...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Alerts Tab -->
+      <section id="tab-alerts" class="tab-content">
+        <div class="panel">
+          <div class="panel-header">
+            <h2>Detection Alerts</h2>
+          </div>
+          <div class="table-wrapper">
+            <table id="alert-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Time</th>
+                  <th>Rule</th>
+                  <th>Severity</th>
+                  <th>Source IP</th>
+                  <th>Trigger</th>
+                  <th>Evidence</th>
+                </tr>
+              </thead>
+              <tbody id="alert-body">
+                <tr>
+                  <td colspan="7" class="empty">No alerts yet</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Blocklist Tab -->
+      <section id="tab-blocklist" class="tab-content">
+        <div class="panel">
+          <div class="panel-header">
+            <h2>Blocked IP Addresses</h2>
+          </div>
+          <div class="table-wrapper">
+            <table id="blocklist-table">
+              <thead>
+                <tr>
+                  <th>IP Address</th>
+                  <th>Blocked At</th>
+                  <th>Reason</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="blocklist-body">
+                <tr>
+                  <td colspan="4" class="empty">No blocked IPs</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Evidence Modal -->
+    <div id="evidence-modal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Alert Evidence — Raw Log Lines</h3>
+          <button class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <pre id="evidence-content"></pre>
+      </div>
+    </div>
+
+    <script src="/static/script.js"></script>
+  </body>
+</html>
