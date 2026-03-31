@@ -3,7 +3,7 @@
 > **BCSE309L: Cryptography & Network Security**
 > Priyanshu Kumar Jha (23BCE1554) · Prikesh Kumar (23BCE1884) · Shivansh Tripathi (23BCE1912)
 
-A self-contained Security Information & Event Management (SIEM) and Security Orchestration, Automation & Response (SOAR) platform deployed as a 9-container Docker cyber range. It collects logs from three simulated network services, normalises them, runs six detection rules (including AI-powered anomaly detection), executes automated SOAR playbooks, manages incidents, and shows everything on a live web dashboard with real-time charts and AI analysis.
+A self-contained Security Information & Event Management (SIEM) and Security Orchestration, Automation & Response (SOAR) platform deployed as a 10-container Docker cyber range. It collects logs from three simulated network services, normalises them, runs six detection rules (including AI-powered anomaly detection), executes automated SOAR playbooks, manages incidents, and shows everything on a live web dashboard with real-time charts and AI analysis.
 
 ---
 
@@ -43,7 +43,8 @@ A self-contained Security Information & Event Management (SIEM) and Security Orc
 │   │                                    ├─ port_scan.py       │                    │
 │   │                                    ├─ flooding.py        │                    │
 │   │                                    ├─ beaconing.py       │                    │
-│   │                                    └─ lateral_movement   │                    │
+│   │                                    ├─ lateral_movement   │                    │
+│   │                                    └─ brute_force.py     │                    │
 │   │                                         │                │                    │
 │   │                          alert_manager.py → blocklist.py │                    │
 │   │                                                          │                    │
@@ -55,10 +56,10 @@ A self-contained Security Information & Event Management (SIEM) and Security Orc
 │   │ normal-traffic     │  │ attacker-portscan │  │ attacker-flood    │               │
 │   │ 10.10.0.101        │  │ 10.10.0.100       │  │ 10.10.0.102       │               │
 │   └──────────────────┘  └──────────────────┘  └──────────────────┘               │
-│   ┌──────────────────┐  ┌──────────────────┐                                     │
-│   │ attacker-beacon    │  │ attacker-lateral   │                                     │
-│   │ 10.10.0.103        │  │ 10.10.0.104        │                                     │
-│   └──────────────────┘  └──────────────────┘                                     │
+│   ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────────┐           │
+│   │ attacker-beacon    │  │ attacker-lateral   │  │ attacker-bruteforce  │           │
+│   │ 10.10.0.103        │  │ 10.10.0.104        │  │ 10.10.0.105          │           │
+│   └──────────────────┘  └──────────────────┘  └──────────────────────┘           │
 └──────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -77,6 +78,7 @@ A self-contained Security Information & Event Management (SIEM) and Security Orc
 | attacker-flood    | 10.10.0.102 | —         | Flood/DoS attack           |
 | attacker-beacon   | 10.10.0.103 | —         | C2 beaconing attack        |
 | attacker-lateral  | 10.10.0.104 | —         | Lateral movement attack    |
+| attacker-bruteforce | 10.10.0.105 | —       | Brute force login attack   |
 
 Each attacker gets a unique IP so detection rules never cross-contaminate.
 
@@ -102,7 +104,7 @@ Service containers write structured log lines to /logs/*.log
               └────────┬───────────┘
                        ▼
               ┌─── rule_engine.py ─┐
-              │  Evaluates 4 rules  │
+              │  Evaluates 5+ rules │
               │  Sliding windows    │
               └────────┬───────────┘
                        ▼
@@ -126,7 +128,7 @@ All timestamps are in IST (+05:30).
 ```
 cns-proj/
 ├── app.py                      # Flask dashboard + SentinelSOAR bootstrap
-├── docker-compose.yml          # 9 containers, sentinel_net network
+├── docker-compose.yml          # 10 containers, sentinel_net network
 ├── Dockerfile                  # SentinelSOAR core image (Python 3.11)
 ├── requirements.txt            # flask>=3.0, pyyaml>=6.0
 ├── config/
@@ -150,7 +152,7 @@ cns-proj/
 │   │   ├── app.py
 │   │   └── Dockerfile
 │   ├── attacker/               # Attack traffic generator
-│   │   ├── attack.py           # 4 scenarios via SCENARIO env var
+│   │   ├── attack.py           # 5 scenarios via SCENARIO env var
 │   │   └── Dockerfile
 │   └── normal_traffic/         # Benign traffic generator
 │       ├── normal_traffic.py
@@ -168,7 +170,8 @@ cns-proj/
         ├── port_scan.py        # Distinct endpoint probe detection
         ├── flooding.py         # Connection rate detection
         ├── beaconing.py        # C2 jitter analysis
-        └── lateral_movement.py # Distinct destination IP detection
+        ├── lateral_movement.py # Distinct destination IP detection
+        └── brute_force.py      # Failed login attempt detection
 ```
 
 ---
@@ -181,6 +184,7 @@ cns-proj/
 | **flooding**         | critical | 10s    | 50 connections from same src_ip                     | DoS / connection flood |
 | **beaconing**        | medium   | 300s   | Jitter σ < 1.5s, mean interval ≥ 2.0s, min 5 events | C2 callback pattern    |
 | **lateral_movement** | high     | 120s   | 3 distinct dst_ips from same src_ip                 | Internal pivoting      |
+| **brute_force**      | high     | 60s    | 5 failed login attempts from same src_ip            | Credential stuffing    |
 
 All rules use a **15-second cooldown** to avoid duplicate alerts on the same IP.
 
@@ -250,6 +254,12 @@ rules:
     window_seconds: 120
     threshold: 3
 
+  brute_force:
+    enabled: true
+    severity: high
+    window_seconds: 60
+    threshold: 5
+
 containment:
   auto_block_severity:
     - high
@@ -291,7 +301,7 @@ docker compose up --build -d
 ### Verify
 
 ```bash
-docker compose ps          # All 9 containers should be Up
+docker compose ps          # All 10 containers should be Up
 open http://localhost:5050  # Dashboard
 ```
 
@@ -306,6 +316,7 @@ docker exec attacker-portscan python attack.py
 docker exec attacker-flood python attack.py
 docker exec -d attacker-beacon python attack.py
 docker exec attacker-lateral python attack.py
+docker exec attacker-bruteforce python attack.py
 ```
 
 ### Reset
@@ -353,6 +364,14 @@ Contacts all three services (web, auth, db). The `lateral_movement` rule fires w
 docker exec attacker-lateral python attack.py
 ```
 
+### Brute Force (10.10.0.105)
+
+Sends 20 rapid login attempts with random usernames and passwords to the auth server. The `brute_force` rule fires when ≥ 5 failed login attempts arrive within 60 seconds from the same source IP.
+
+```bash
+docker exec attacker-bruteforce python attack.py
+```
+
 ---
 
 ## 10. FAQ / Viva Questions
@@ -373,7 +392,7 @@ It provides an isolated, reproducible network environment. Each container has a 
 Each rule maintains a per-IP sliding time window (deque). When a new event arrives, expired entries are purged and the rule checks whether the remaining count/pattern exceeds its threshold.
 
 **Q: Why separate attacker containers?**
-Each attack has a unique source IP (10.10.0.100–104). This prevents log interference — e.g., a flood from one IP won't accidentally trigger the port scan rule.
+Each attack has a unique source IP (10.10.0.100–105). This prevents log interference — e.g., a flood from one IP won't accidentally trigger the port scan rule.
 
 **Q: How does auto-blocking work?**
 When an alert has severity `high` or `critical`, `blocklist.py` adds the source IP. In the next polling cycle, `core.py` drops all events from that IP before they reach the dashboard or rules.

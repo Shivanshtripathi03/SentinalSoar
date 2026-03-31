@@ -53,8 +53,9 @@ All containers share the bridge network **sentinel_net** (`10.10.0.0/24`).
 | attacker-flood    | 10.10.0.102 | HTTP flood generator        | No — sleeps     |
 | attacker-beacon   | 10.10.0.103 | C2 beaconing generator      | No — sleeps     |
 | attacker-lateral  | 10.10.0.104 | Lateral-movement generator  | No — sleeps     |
+| attacker-bruteforce | 10.10.0.105 | Brute-force login generator | No — sleeps     |
 
-> **9 containers total.** The four attacker containers and normal-traffic sleep on startup
+> **10 containers total.** The five attacker containers and normal-traffic sleep on startup
 > and do nothing until you explicitly `docker exec` into them.
 
 ---
@@ -170,17 +171,27 @@ docker exec  attacker-lateral python attack.py
 - **Expected alert:** `lateral_movement` (HIGH) after ≥ 3 targets in 120 s.
 - `10.10.0.104` is auto-blocked.
 
+### 7.5 Brute Force (source: 10.10.0.105)
+
+```bash
+docker exec attacker-bruteforce python attack.py
+```
+
+- Sends 20 rapid login attempts with random usernames/passwords to `auth-server`.
+- **Expected alert:** `brute_force` (HIGH) after ≥ 5 failed logins in 60 s.
+- `10.10.0.105` is auto-blocked because HIGH ∈ `auto_block`.
+
 ---
 
 ## 8. Dashboard Walkthrough
 
 ### Summary Cards
 
-| Card         | Expected (after all attacks)               |
-| ------------ | ------------------------------------------ |
-| Total Events | Several hundred+                           |
-| Total Alerts | 4+ (one per rule)                          |
-| Blocked IPs  | 3 (port-scan, flood, lateral — not beacon) |
+| Card         | Expected (after all attacks)                            |
+| ------------ | ------------------------------------------------------- |
+| Total Events | Several hundred+                                        |
+| Total Alerts | 5+ (one per rule)                                       |
+| Blocked IPs  | 4 (port-scan, flood, lateral, brute-force — not beacon) |
 
 ### Events-over-time Line Chart
 
@@ -286,6 +297,10 @@ rules:
     severity: high
     window: 120
     threshold: 3 # distinct targets
+  brute_force:
+    severity: high
+    window: 60
+    threshold: 5 # failed login attempts
 
 auto_block:
   - high
@@ -328,6 +343,8 @@ sleep 5
 docker exec -d attacker-beacon   python /app/attacker.py
 sleep 5
 docker exec -d attacker-lateral  python /app/attacker.py
+sleep 5
+docker exec -d attacker-bruteforce python /app/attacker.py
 
 # ── 5. Watch dashboard ─────────────────────────────
 echo "Open http://localhost:5050 in your browser"

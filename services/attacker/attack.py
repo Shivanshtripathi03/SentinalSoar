@@ -1,5 +1,5 @@
 """
-Attack Traffic Generator — simulates 4 attack scenarios.
+Attack Traffic Generator — simulates 5 attack scenarios.
 Run from the attacker container with: python attack.py --scenario <name>
 
 Scenarios:
@@ -7,6 +7,7 @@ Scenarios:
   beaconing      — periodic low-volume C2-like connections
   flood          — burst of rapid connections
   lateral        — probe all internal services from one source
+  brute_force    — rapid failed login attempts against auth-server
   all            — run all scenarios sequentially
 """
 
