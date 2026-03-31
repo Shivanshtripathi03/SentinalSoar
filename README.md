@@ -1,9 +1,9 @@
-# Mini SIEM — Network & Transport-Layer Threat Detection
+# SentinelSOAR — AI-Powered Threat Detection & Automated Response
 
 > **BCSE309L: Cryptography & Network Security**
 > Priyanshu Kumar Jha (23BCE1554) · Prikesh Kumar (23BCE1884) · Shivansh Tripathi (23BCE1912)
 
-A self-contained Security Information and Event Management (SIEM) system deployed as a 9-container Docker cyber range. It collects logs from three simulated network services, normalises them, runs four sliding-window detection rules, auto-blocks attackers, and shows everything on a live web dashboard with real-time charts.
+A self-contained Security Information & Event Management (SIEM) and Security Orchestration, Automation & Response (SOAR) platform deployed as a 9-container Docker cyber range. It collects logs from three simulated network services, normalises them, runs six detection rules (including AI-powered anomaly detection), executes automated SOAR playbooks, manages incidents, and shows everything on a live web dashboard with real-time charts and AI analysis.
 
 ---
 
@@ -25,7 +25,7 @@ A self-contained Security Information and Event Management (SIEM) system deploye
 ## 1. Architecture
 
 ```
-┌──────────────────── Docker Network: siem_net (10.10.0.0/24) ────────────────────┐
+┌──────────────────── Docker Network: sentinel_net (10.10.0.0/24) ────────────────────┐
 │                                                                                  │
 │   ┌─────────────┐   ┌─────────────┐   ┌─────────────┐                          │
 │   │ web-server   │   │ auth-server  │   │ db-server    │                          │
@@ -37,7 +37,7 @@ A self-contained Security Information and Event Management (SIEM) system deploye
 │                    │  Shared Docker Volume: /logs                                  │
 │                    ▼                                                               │
 │   ┌──────────────────────────────────────────────────────────┐                    │
-│   │                 SIEM Core  (10.10.0.50)                   │                    │
+│   │                 SentinelSOAR Core  (10.10.0.50)              │                    │
 │   │                                                          │                    │
 │   │  ingestion.py → normaliser.py → rule_engine.py           │                    │
 │   │                                    ├─ port_scan.py       │                    │
@@ -71,7 +71,7 @@ A self-contained Security Information and Event Management (SIEM) system deploye
 | web-server        | 10.10.0.10  | 80        | Simulated HTTP server      |
 | auth-server       | 10.10.0.11  | 22        | Simulated SSH/auth service |
 | db-server         | 10.10.0.12  | 3306      | Simulated MySQL service    |
-| siem-core         | 10.10.0.50  | 5050→5000 | SIEM engine + dashboard    |
+| sentinelsoar-core         | 10.10.0.50  | 5050→5000 | SentinelSOAR engine + dashboard |
 | attacker-portscan | 10.10.0.100 | —         | Port scan attack           |
 | normal-traffic    | 10.10.0.101 | —         | Benign traffic generator   |
 | attacker-flood    | 10.10.0.102 | —         | Flood/DoS attack           |
@@ -125,16 +125,16 @@ All timestamps are in IST (+05:30).
 
 ```
 cns-proj/
-├── app.py                      # Flask dashboard + SIEM bootstrap
-├── docker-compose.yml          # 9 containers, siem_net network
-├── Dockerfile                  # SIEM core image (Python 3.11)
+├── app.py                      # Flask dashboard + SentinelSOAR bootstrap
+├── docker-compose.yml          # 9 containers, sentinel_net network
+├── Dockerfile                  # SentinelSOAR core image (Python 3.11)
 ├── requirements.txt            # flask>=3.0, pyyaml>=6.0
 ├── config/
 │   └── rules.yaml              # Rule thresholds + containment config
 ├── dashboard/
 │   ├── templates/index.html    # Dashboard HTML (Chart.js)
 │   └── static/
-│       ├── style.css           # Dark navy SIEM theme
+│       ├── style.css           # Dark premium SentinelSOAR theme
 │       └── script.js           # Charts, tables, auto-refresh
 ├── data/
 │   ├── alerts.json             # Persisted alerts
@@ -155,7 +155,7 @@ cns-proj/
 │   └── normal_traffic/         # Benign traffic generator
 │       ├── normal_traffic.py
 │       └── Dockerfile
-└── siem/
+└── sentinelsoar/
     ├── __init__.py
     ├── core.py                 # Main pipeline loop (1s polling)
     ├── ingestion.py            # Log file tailer
@@ -357,8 +357,8 @@ docker exec attacker-lateral python attack.py
 
 ## 10. FAQ / Viva Questions
 
-**Q: What is a SIEM?**
-A system that collects, normalises, correlates, and analyses security logs from multiple sources to detect threats, generate alerts, and support incident response.
+**Q: What is a SIEM and SOAR?**
+A SIEM collects, normalises, correlates, and analyses security logs from multiple sources to detect threats and generate alerts. A SOAR system automates incident response through playbooks — SentinelSOAR combines both.
 
 **Q: Why Docker?**
 It provides an isolated, reproducible network environment. Each container has a fixed IP, and the shared volume simulates real log collection.
@@ -391,7 +391,7 @@ A 15-second window after an alert fires during which the same rule won't re-aler
 The 15-second cooldown is short enough that the rule will fire again on a fresh attack run. Reset data files for a completely clean slate.
 
 **Q: How does the Events Over Time chart work?**
-The SIEM stores `(timestamp, src_ip)` tuples. The `/api/timeseries` endpoint buckets these by second per IP. The dashboard uses Chart.js to render the line chart with a seekable slider (20–1000 logs).
+SentinelSOAR stores `(timestamp, src_ip)` tuples. The `/api/timeseries` endpoint buckets these by second per IP. The dashboard uses Chart.js to render the line chart with a seekable slider (20–1000 logs).
 
 **Q: What does the flood threshold line on the chart mean?**
 It's a visual reference at 5 events/sec (equivalent to the flooding rule's 50 events in 10 seconds).
@@ -400,4 +400,4 @@ It's a visual reference at 5 events/sec (equivalent to the flooding rule's 50 ev
 Python 3.11, Flask ≥ 3.0, PyYAML, Chart.js 4, Docker Compose. No database — alerts and blocklist are stored as JSON files.
 
 **Q: Can I add a new rule?**
-Yes. Create a new file in `siem/rules/`, implement `evaluate(event) → list[alert]`, add it to `rules.yaml`, and register it in `rule_engine.py`.
+Yes. Create a new file in `sentinelsoar/rules/`, implement `evaluate(event) → list[alert]`, add it to `rules.yaml`, and register it in `rule_engine.py`.

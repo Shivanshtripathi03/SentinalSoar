@@ -122,11 +122,41 @@ def scenario_lateral():
     print("[+] Lateral movement complete")
 
 
+def scenario_brute_force():
+    """
+    BRUTE FORCE — Rapid failed login attempts against the auth server.
+    Sends 20 login attempts with wrong passwords.
+    The brute_force rule fires when >= 5 LOGIN_FAIL events arrive
+    within 60 seconds from the same IP.
+    """
+    print("[!] Running BRUTE FORCE scenario")
+    host, port = TARGETS["auth"]
+
+    usernames = ["admin", "root", "user1", "test", "guest", "administrator"]
+    passwords = ["password", "123456", "admin", "letmein", "qwerty", "toor"]
+
+    for i in range(20):
+        user = random.choice(usernames)
+        passwd = random.choice(passwords)
+        try:
+            requests.post(
+                f"http://{host}:{port}/login",
+                json={"username": user, "password": passwd},
+                timeout=2,
+            )
+        except Exception:
+            pass
+        time.sleep(random.uniform(0.2, 0.5))
+
+    print("[+] Brute force complete — 20 login attempts sent")
+
+
 SCENARIOS = {
     "port_scan": scenario_port_scan,
     "beaconing": scenario_beaconing,
     "flood": scenario_flood,
     "lateral": scenario_lateral,
+    "brute_force": scenario_brute_force,
 }
 
 

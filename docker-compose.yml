@@ -1,8 +1,8 @@
 # ─────────────────────────────────────────────────────
-# Mini SIEM Cyber Range — Docker Compose
+# SentinelSOAR Cyber Range — Docker Compose
 # ─────────────────────────────────────────────────────
-# Network:  siem_net  10.10.0.0/24
-# Services: web-server, auth-server, db-server, attacker, siem-core
+# Network:  sentinel_net  10.10.0.0/24
+# Services: web-server, auth-server, db-server, attacker, sentinelsoar-core
 # Shared:   logs volume mounted at /logs in all service containers
 
 services:
@@ -11,7 +11,7 @@ services:
     build: ./services/web_server
     container_name: web-server
     networks:
-      siem_net:
+      sentinel_net:
         ipv4_address: 10.10.0.10
     volumes:
       - logs:/logs
@@ -29,7 +29,7 @@ services:
     build: ./services/auth_server
     container_name: auth-server
     networks:
-      siem_net:
+      sentinel_net:
         ipv4_address: 10.10.0.11
     volumes:
       - logs:/logs
@@ -47,7 +47,7 @@ services:
     build: ./services/db_server
     container_name: db-server
     networks:
-      siem_net:
+      sentinel_net:
         ipv4_address: 10.10.0.12
     volumes:
       - logs:/logs
@@ -65,7 +65,7 @@ services:
     build: ./services/attacker
     container_name: attacker-portscan
     networks:
-      siem_net:
+      sentinel_net:
         ipv4_address: 10.10.0.100
     environment:
       - SCENARIO=port_scan
@@ -79,7 +79,7 @@ services:
     build: ./services/attacker
     container_name: attacker-flood
     networks:
-      siem_net:
+      sentinel_net:
         ipv4_address: 10.10.0.102
     environment:
       - SCENARIO=flood
@@ -93,7 +93,7 @@ services:
     build: ./services/attacker
     container_name: attacker-beacon
     networks:
-      siem_net:
+      sentinel_net:
         ipv4_address: 10.10.0.103
     environment:
       - SCENARIO=beaconing
@@ -107,7 +107,7 @@ services:
     build: ./services/attacker
     container_name: attacker-lateral
     networks:
-      siem_net:
+      sentinel_net:
         ipv4_address: 10.10.0.104
     environment:
       - SCENARIO=lateral
@@ -121,30 +121,48 @@ services:
     build: ./services/normal_traffic
     container_name: normal-traffic
     networks:
-      siem_net:
+      sentinel_net:
         ipv4_address: 10.10.0.101
     depends_on:
       - web-server
       - auth-server
       - db-server
 
-  # ── SIEM Core + Dashboard ─────────────────────────
-  siem-core:
+  # ── SentinelSOAR Core + Dashboard ─────────────────
+  sentinelsoar-core:
     build: .
-    container_name: siem-core
+    container_name: sentinelsoar-core
     networks:
-      siem_net:
+      sentinel_net:
         ipv4_address: 10.10.0.50
     ports:
       - "5050:5000"
     volumes:
       - logs:/logs
-      - ./data:/app/data
-      - ./config:/app/config
+      - sentinel_data:/app/data
     environment:
       - LOG_DIR=/logs
       - CONFIG_PATH=/app/config/rules.yaml
       - DATA_DIR=/app/data
+      # Optional: AI & Notification keys (set your keys here)
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - ABUSEIPDB_API_KEY=${ABUSEIPDB_API_KEY:-}
+      - VIRUSTOTAL_API_KEY=${VIRUSTOTAL_API_KEY:-}
+      - WEBHOOK_URL=${WEBHOOK_URL:-}
+    depends_on:
+      - web-server
+      - auth-server
+      - db-server
+
+  # ── Attacker: Brute Force (idle until invoked) ─────
+  attacker-bruteforce:
+    build: ./services/attacker
+    container_name: attacker-bruteforce
+    networks:
+      sentinel_net:
+        ipv4_address: 10.10.0.105
+    environment:
+      - SCENARIO=brute_force
     depends_on:
       - web-server
       - auth-server
@@ -152,10 +170,11 @@ services:
 
 volumes:
   logs:
+  sentinel_data:
 
 
 networks:
-  siem_net:
+  sentinel_net:
     driver: bridge
     ipam:
       config:

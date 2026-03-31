@@ -1,4 +1,4 @@
-# Mini SIEM Cyber Range — Execution Guide
+# SentinelSOAR Cyber Range — Execution Guide
 
 Step-by-step guide to build, run, demonstrate, and troubleshoot the project.
 
@@ -40,14 +40,14 @@ Docker Desktop (macOS / Windows) bundles both. On Linux install `docker-compose-
 
 ## 2. Network & IP Map
 
-All containers share the bridge network **siem_net** (`10.10.0.0/24`).
+All containers share the bridge network **sentinel_net** (`10.10.0.0/24`).
 
 | Container         | IP          | Role                        | Starts on boot? |
 | ----------------- | ----------- | --------------------------- | --------------- |
 | web-server        | 10.10.0.10  | HTTP target (port 80)       | Yes             |
 | auth-server       | 10.10.0.11  | SSH simulator (port 22)     | Yes             |
 | db-server         | 10.10.0.12  | MySQL simulator (port 3306) | Yes             |
-| siem-core         | 10.10.0.50  | SIEM engine + dashboard     | Yes             |
+| sentinelsoar-core         | 10.10.0.50  | SentinelSOAR engine + dashboard | Yes             |
 | attacker-portscan | 10.10.0.100 | Port-scan generator         | No — sleeps     |
 | normal-traffic    | 10.10.0.101 | Benign traffic generator    | No — sleeps     |
 | attacker-flood    | 10.10.0.102 | HTTP flood generator        | No — sleeps     |
@@ -115,7 +115,7 @@ Expected: `total_events: 0`, `total_alerts: 0`, `blocked_ips: 0`.
 ## 6. Generate Normal Traffic
 
 ```bash
-docker exec -it normal-traffic python /app/attacker.py
+docker exec -d normal-traffic python normal_traffic.py
 ```
 
 This sends benign requests to all three target servers at a low rate.
@@ -133,7 +133,7 @@ because it builds from low to high severity.
 ### 7.1 Port Scan (source: 10.10.0.100)
 
 ```bash
-docker exec -it attacker-portscan python /app/attacker.py
+docker exec attacker-portscan python attack.py
 ```
 
 - Probes multiple ports across all three targets.
@@ -143,7 +143,7 @@ docker exec -it attacker-portscan python /app/attacker.py
 ### 7.2 HTTP Flood (source: 10.10.0.102)
 
 ```bash
-docker exec -it attacker-flood python /app/attacker.py
+docker exec attacker-flood python attack.py
 ```
 
 - Sends rapid HTTP requests to `web-server`.
@@ -153,7 +153,7 @@ docker exec -it attacker-flood python /app/attacker.py
 ### 7.3 C2 Beaconing (source: 10.10.0.103)
 
 ```bash
-docker exec -it attacker-beacon python /app/attacker.py
+docker exec attacker-beacon python attack.py
 ```
 
 - Sends periodic callbacks with low jitter.
@@ -163,7 +163,7 @@ docker exec -it attacker-beacon python /app/attacker.py
 ### 7.4 Lateral Movement (source: 10.10.0.104)
 
 ```bash
-docker exec -it attacker-lateral python /app/attacker.py
+docker exec  attacker-lateral python attack.py
 ```
 
 - Connects to auth-server then pivots to db-server.
@@ -292,10 +292,10 @@ auto_block:
   - critical
 ```
 
-After editing, rebuild only the SIEM container:
+After editing, rebuild only the SentinelSOAR container:
 
 ```bash
-docker compose up --build -d siem-core
+docker compose up --build -d sentinelsoar-core
 ```
 
 ---
@@ -349,9 +349,9 @@ curl -s http://localhost:5050/api/blocklist | python3 -m json.tool
 | ----------------------------------- | ----------------------------------------------------------------------------------------------------------- |
 | `port 5050 already in use`          | `lsof -i :5050` → kill the process, or change the port in `docker-compose.yml`                              |
 | Containers exit immediately         | `docker compose logs <name>` — usually a Python import error; rebuild with `--no-cache`                     |
-| No events on dashboard              | Make sure `normal-traffic` or an attacker is running; check `docker compose logs siem-core` for poll errors |
+| No events on dashboard              | Make sure `normal-traffic` or an attacker is running; check `docker compose logs sentinelsoar-core` for poll errors |
 | Alerts don't fire                   | Verify `config/rules.yaml` thresholds; lower them for faster triggering                                     |
-| IP blocked but attack still running | The SIEM drops events from blocked IPs; unblock via API to resume                                           |
+| IP blocked but attack still running | SentinelSOAR drops events from blocked IPs; unblock via API to resume                                       |
 | Dashboard charts not updating       | Hard-refresh the browser (`Cmd+Shift+R`); make sure JS has no console errors                                |
 | `docker compose` not found          | Install Docker Compose V2 plugin: `apt install docker-compose-plugin`                                       |
 | Stale data from previous run        | `docker compose down -v && echo '[]' > data/alerts.json && echo '{}' > data/blocklist.json`                 |

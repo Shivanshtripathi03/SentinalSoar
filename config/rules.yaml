@@ -24,6 +24,20 @@ rules:
     window_seconds: 120
     threshold: 3  # distinct dst_ip from same src_ip
 
+  brute_force:
+    enabled: true
+    severity: high
+    window_seconds: 60
+    threshold: 5  # failed login attempts from same src_ip
+
+  ai_anomaly:
+    enabled: true
+    severity: medium
+    window_seconds: 300
+    baseline_minutes: 10
+    z_threshold: 3.0  # standard deviations from baseline
+    min_baseline_points: 5
+
 containment:
   auto_block_severity:
     - high

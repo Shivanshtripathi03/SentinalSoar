@@ -1,0 +1,72 @@
+# ─────────────────────────────────────────────────────
+# SOAR Playbook Configuration
+# ─────────────────────────────────────────────────────
+# Each playbook maps alert rules to ordered response actions.
+# Available actions: block_ip, enrich_ip, notify, escalate,
+#                    add_to_watchlist, log_incident
+
+playbooks:
+  - name: "Flooding Response"
+    trigger_rules:
+      - FLOODING
+    actions:
+      - action: block_ip
+      - action: enrich_ip
+      - action: notify
+        params:
+          channel: log
+      - action: log_incident
+
+  - name: "Port Scan Response"
+    trigger_rules:
+      - PORT_SCAN
+    actions:
+      - action: block_ip
+      - action: enrich_ip
+      - action: log_incident
+
+  - name: "Brute Force Response"
+    trigger_rules:
+      - BRUTE_FORCE
+    actions:
+      - action: block_ip
+      - action: enrich_ip
+      - action: notify
+        params:
+          channel: log
+      - action: log_incident
+
+  - name: "Beaconing Investigation"
+    trigger_rules:
+      - BEACONING
+    actions:
+      - action: enrich_ip
+      - action: add_to_watchlist
+        params:
+          duration: "48h"
+      - action: notify
+        params:
+          channel: log
+      - action: log_incident
+
+  - name: "Lateral Movement Response"
+    trigger_rules:
+      - LATERAL_MOVEMENT
+    actions:
+      - action: block_ip
+      - action: enrich_ip
+      - action: escalate
+      - action: notify
+        params:
+          channel: log
+      - action: log_incident
+
+  - name: "Anomaly Investigation"
+    trigger_rules:
+      - ANOMALY_DETECTION
+    actions:
+      - action: enrich_ip
+      - action: add_to_watchlist
+        params:
+          duration: "24h"
+      - action: log_incident

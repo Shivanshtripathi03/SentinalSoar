@@ -6,10 +6,12 @@ import time
 import yaml
 from datetime import datetime, timedelta
 
-from siem.rules.port_scan import PortScanRule
-from siem.rules.beaconing import BeaconingRule
-from siem.rules.flooding import FloodingRule
-from siem.rules.lateral_movement import LateralMovementRule
+from sentinelsoar.rules.port_scan import PortScanRule
+from sentinelsoar.rules.beaconing import BeaconingRule
+from sentinelsoar.rules.flooding import FloodingRule
+from sentinelsoar.rules.lateral_movement import LateralMovementRule
+from sentinelsoar.rules.brute_force import BruteForceRule
+from sentinelsoar.rules.ai_anomaly import AnomalyDetectionRule
 
 
 class RuleEngine:
@@ -68,6 +70,24 @@ class RuleEngine:
                 severity=cfg.get("severity", "high"),
             ))
 
+        if rc.get("brute_force", {}).get("enabled", True):
+            cfg = rc.get("brute_force", {})
+            rules.append(BruteForceRule(
+                window_seconds=cfg.get("window_seconds", 60),
+                threshold=cfg.get("threshold", 5),
+                severity=cfg.get("severity", "high"),
+            ))
+
+        if rc.get("ai_anomaly", {}).get("enabled", True):
+            cfg = rc.get("ai_anomaly", {})
+            rules.append(AnomalyDetectionRule(
+                window_seconds=cfg.get("window_seconds", 300),
+                baseline_minutes=cfg.get("baseline_minutes", 10),
+                z_threshold=cfg.get("z_threshold", 3.0),
+                min_baseline_points=cfg.get("min_baseline_points", 5),
+                severity=cfg.get("severity", "medium"),
+            ))
+
         print(f"[rule_engine] Loaded {len(rules)} rules: {[r.name for r in rules]}")
         return rules
 
@@ -85,3 +105,4 @@ class RuleEngine:
 
     def get_auto_block_severities(self):
         return self.config.get("containment", {}).get("auto_block_severity", ["high", "critical"])
+

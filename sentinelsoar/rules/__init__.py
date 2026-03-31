@@ -1,0 +1,1 @@
+# SentinelSOAR Rules Package

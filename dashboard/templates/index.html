@@ -3,7 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Mini SIEM Dashboard</title>
+    <title>SentinelSOAR — Threat Detection & Automated Response</title>
+    <meta name="description" content="Enterprise SIEM & SOAR platform with AI-powered threat analysis, automated incident response, and real-time security monitoring." />
+    <link rel="icon" href="/static/logo.png" type="image/png" />
     <link rel="stylesheet" href="/static/style.css" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   </head>
@@ -11,16 +13,21 @@
     <header>
       <div class="header-content">
         <div class="header-left">
-          <div class="logo-icon">&#x1f6e1;</div>
+          <img src="/static/logo.png" alt="SentinelSOAR" class="logo-img" />
           <div>
-            <h1>Mini SIEM</h1>
+            <h1>Sentinel<span class="brand-accent">SOAR</span></h1>
             <span class="header-subtitle"
-              >Security Information & Event Management</span
+              >Threat Detection &bull; Automated Response &bull; AI Analytics</span
             >
           </div>
         </div>
         <div class="header-right">
-          <span class="live-badge"><span class="live-dot"></span> LIVE</span>
+          <div class="header-actions">
+            <button class="btn-header" onclick="showAISummary()" id="btn-ai-summary">
+              &#x1f916; AI Summary
+            </button>
+            <span class="live-badge"><span class="live-dot"></span> LIVE</span>
+          </div>
         </div>
       </div>
     </header>
@@ -53,7 +60,7 @@
           <div class="card-icon card-icon-rules">&#x2699;</div>
           <div class="card-info">
             <span class="card-label">Active Rules</span>
-            <span class="card-value">4</span>
+            <span class="card-value" id="stat-rules">6</span>
           </div>
         </div>
       </section>
@@ -122,6 +129,8 @@
         <button class="tab active" data-tab="logs">Live Logs</button>
         <button class="tab" data-tab="alerts">Alerts</button>
         <button class="tab" data-tab="blocklist">Blocked IPs</button>
+        <button class="tab" data-tab="incidents">&#x1f4cb; Incidents</button>
+        <button class="tab" data-tab="soar">&#x26a1; SOAR Log</button>
       </nav>
 
       <!-- Live Logs Tab -->
@@ -183,11 +192,12 @@
                   <th>Source IP</th>
                   <th>Trigger</th>
                   <th>Evidence</th>
+                  <th>AI</th>
                 </tr>
               </thead>
               <tbody id="alert-body">
                 <tr>
-                  <td colspan="7" class="empty">No alerts yet</td>
+                  <td colspan="8" class="empty">No alerts yet</td>
                 </tr>
               </tbody>
             </table>
@@ -208,15 +218,68 @@
                   <th>IP Address</th>
                   <th>Blocked At</th>
                   <th>Reason</th>
+                  <th>Intel</th>
                   <th>Action</th>
                 </tr>
               </thead>
               <tbody id="blocklist-body">
                 <tr>
-                  <td colspan="4" class="empty">No blocked IPs</td>
+                  <td colspan="5" class="empty">No blocked IPs</td>
                 </tr>
               </tbody>
             </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Incidents Tab -->
+      <section id="tab-incidents" class="tab-content">
+        <div class="panel">
+          <div class="panel-header">
+            <h2>Incident Management</h2>
+            <div class="controls">
+              <select id="incident-status-filter">
+                <option value="">All Statuses</option>
+                <option value="open">Open</option>
+                <option value="investigating">Investigating</option>
+                <option value="resolved">Resolved</option>
+                <option value="closed">Closed</option>
+              </select>
+            </div>
+          </div>
+          <div class="table-wrapper">
+            <table id="incident-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Status</th>
+                  <th>Severity</th>
+                  <th>Source IP</th>
+                  <th>Title</th>
+                  <th>Alerts</th>
+                  <th>Kill Chain</th>
+                  <th>Created</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="incident-body">
+                <tr>
+                  <td colspan="9" class="empty">No incidents yet</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- SOAR Log Tab -->
+      <section id="tab-soar" class="tab-content">
+        <div class="panel">
+          <div class="panel-header">
+            <h2>SOAR Playbook Executions</h2>
+          </div>
+          <div id="soar-log-container" style="padding: 16px;">
+            <p class="empty" style="text-align:center;padding:36px;color:var(--text-muted);font-style:italic;">No playbook executions yet</p>
           </div>
         </div>
       </section>
@@ -230,6 +293,38 @@
           <button class="modal-close" onclick="closeModal()">&times;</button>
         </div>
         <pre id="evidence-content"></pre>
+      </div>
+    </div>
+
+    <!-- AI Analysis Modal -->
+    <div id="ai-modal" class="modal hidden">
+      <div class="modal-content" style="max-width: 700px;">
+        <div class="modal-header">
+          <h3>&#x1f916; AI Threat Analysis</h3>
+          <button class="modal-close" onclick="closeAIModal()">&times;</button>
+        </div>
+        <div id="ai-modal-body" class="ai-modal-body">
+          <div class="ai-loading">
+            <div class="spinner"></div>
+            Analyzing alert with AI...
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Threat Intel Modal -->
+    <div id="intel-modal" class="modal hidden">
+      <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+          <h3>&#x1f50d; Threat Intelligence</h3>
+          <button class="modal-close" onclick="closeIntelModal()">&times;</button>
+        </div>
+        <div id="intel-modal-body" class="intel-grid">
+          <div class="ai-loading" style="grid-column:1/-1;">
+            <div class="spinner"></div>
+            Looking up IP...
+          </div>
+        </div>
       </div>
     </div>
 

@@ -1,1 +1,0 @@
-# SIEM Core Package

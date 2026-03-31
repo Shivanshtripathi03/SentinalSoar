@@ -1,6 +1,7 @@
 """
-SIEM Main Loop — orchestrates ingestion, normalisation, rule evaluation,
-alerting, and containment in a single-threaded polling loop.
+SentinelSOAR Main Loop — orchestrates ingestion, normalisation, rule evaluation,
+alerting, containment, and SOAR playbook execution in a single-threaded
+polling loop.
 """
 
 import os
@@ -8,15 +9,21 @@ import time
 import threading
 from collections import deque
 
-from siem.ingestion import LogIngester
-from siem.normaliser import normalise
-from siem.rule_engine import RuleEngine
-from siem.alert_manager import AlertManager
-from siem.blocklist import BlocklistManager
+from sentinelsoar.ingestion import LogIngester
+from sentinelsoar.normaliser import normalise
+from sentinelsoar.rule_engine import RuleEngine
+from sentinelsoar.alert_manager import AlertManager
+from sentinelsoar.blocklist import BlocklistManager
+from sentinelsoar.soar.playbook_engine import PlaybookEngine
+from sentinelsoar.soar.notifier import NotificationManager
+from sentinelsoar.intel.threat_intel import ThreatIntelManager
+from sentinelsoar.incident.manager import IncidentManager
+from sentinelsoar.ai.analyst import AIAnalyst
+from sentinelsoar.audit import AuditLogger
 
 
-class SIEMCore:
-    """Main SIEM processing pipeline."""
+class SentinelSOARCore:
+    """Main SentinelSOAR processing pipeline with SOAR integration."""
 
     def __init__(
         self,
@@ -30,6 +37,23 @@ class SIEMCore:
         self.blocklist = BlocklistManager(data_dir=data_dir)
         self.auto_block_severities = self.rule_engine.get_auto_block_severities()
 
+        # ── New modules ──
+        playbook_config = os.path.join(os.path.dirname(config_path), "playbooks.yaml")
+        self.threat_intel = ThreatIntelManager()
+        self.incident_manager = IncidentManager(data_dir=data_dir)
+        self.notifier = NotificationManager()
+        self.ai_analyst = AIAnalyst()
+        self.audit = AuditLogger(data_dir=data_dir)
+        self.playbook_engine = PlaybookEngine(config_path=playbook_config)
+
+        # Register service providers for SOAR actions
+        self.playbook_engine.register_providers(
+            blocklist=self.blocklist,
+            threat_intel=self.threat_intel,
+            notifier=self.notifier,
+            incident_manager=self.incident_manager,
+        )
+
         # Recent normalised events for the dashboard
         self.recent_events = deque(maxlen=500)
         # Time-series tracking: (epoch, src_ip, source_type)
@@ -37,10 +61,11 @@ class SIEMCore:
         self.lock = threading.Lock()
 
         self.running = False
+        self.start_time = None
         self.stats = {"events_processed": 0, "alerts_generated": 0, "ips_blocked": 0}
 
     def process_cycle(self):
-        """One polling cycle: ingest → normalise → evaluate → alert → block."""
+        """One polling cycle: ingest → normalise → evaluate → alert → SOAR."""
         raw_lines = self.ingester.poll()
         for source_type, raw_line in raw_lines:
             event = normalise(source_type, raw_line)
@@ -72,6 +97,12 @@ class SIEMCore:
                     )
                     if blocked:
                         self.stats["ips_blocked"] += 1
+
+                # Execute SOAR playbooks
+                try:
+                    self.playbook_engine.execute_for_alert(alert)
+                except Exception as e:
+                    print(f"[sentinelsoar] SOAR playbook error: {e}")
 
     def get_recent_events(self, limit=200):
         with self.lock:
@@ -119,12 +150,15 @@ class SIEMCore:
     def run(self, poll_interval=1.0):
         """Start the main polling loop (blocking)."""
         self.running = True
-        print(f"[siem] SIEM Core started — polling every {poll_interval}s")
+        self.start_time = time.time()
+        print(f"[sentinelsoar] SentinelSOAR Core started — polling every {poll_interval}s")
+        print(f"[sentinelsoar] Active rules: {len(self.rule_engine.rules)}, "
+              f"Playbooks: {len(self.playbook_engine.playbooks)}")
         while self.running:
             try:
                 self.process_cycle()
             except Exception as e:
-                print(f"[siem] Error in processing cycle: {e}")
+                print(f"[sentinelsoar] Error in processing cycle: {e}")
             time.sleep(poll_interval)
 
     def stop(self):
