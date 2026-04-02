@@ -1,8 +1,5 @@
 # SentinelSOAR — AI-Powered Threat Detection & Automated Response
 
-> **BCSE309L: Cryptography & Network Security**
-> Priyanshu Kumar Jha (23BCE1554) · Prikesh Kumar (23BCE1884) · Shivansh Tripathi (23BCE1912)
-
 A self-contained Security Information & Event Management (SIEM) and Security Orchestration, Automation & Response (SOAR) platform deployed as a 10-container Docker cyber range. It collects logs from three simulated network services, normalises them, runs six detection rules (including AI-powered anomaly detection), executes automated SOAR playbooks, manages incidents, and shows everything on a live web dashboard with real-time charts and AI analysis.
 
 ---
