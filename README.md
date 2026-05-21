@@ -15,7 +15,7 @@ A self-contained Security Information & Event Management (SIEM) and Security Orc
 7. [Configuration & Tweaking](#7-configuration--tweaking)
 8. [Quick Start](#8-quick-start)
 9. [Attack Scenarios](#9-attack-scenarios)
-10. [FAQ / Viva Questions](#10-faq--viva-questions)
+
 
 ---
 
@@ -371,49 +371,3 @@ docker exec attacker-bruteforce python attack.py
 
 ---
 
-## 10. FAQ / Viva Questions
-
-**Q: What is a SIEM and SOAR?**
-A SIEM collects, normalises, correlates, and analyses security logs from multiple sources to detect threats and generate alerts. A SOAR system automates incident response through playbooks — SentinelSOAR combines both.
-
-**Q: Why Docker?**
-It provides an isolated, reproducible network environment. Each container has a fixed IP, and the shared volume simulates real log collection.
-
-**Q: How are logs collected?**
-`ingestion.py` tails `.log` files from a shared Docker volume, tracking byte offsets so it only reads new lines each polling cycle.
-
-**Q: What does normalisation do?**
-`normaliser.py` uses regex to parse raw log lines into a common JSON schema with fields like `src_ip`, `dst_ip`, `dst_port`, `action`, `source_type`, `timestamp`.
-
-**Q: How do the detection rules work?**
-Each rule maintains a per-IP sliding time window (deque). When a new event arrives, expired entries are purged and the rule checks whether the remaining count/pattern exceeds its threshold.
-
-**Q: Why separate attacker containers?**
-Each attack has a unique source IP (10.10.0.100–105). This prevents log interference — e.g., a flood from one IP won't accidentally trigger the port scan rule.
-
-**Q: How does auto-blocking work?**
-When an alert has severity `high` or `critical`, `blocklist.py` adds the source IP. In the next polling cycle, `core.py` drops all events from that IP before they reach the dashboard or rules.
-
-**Q: How do I unblock an IP?**
-Click "Unblock" on the dashboard, or POST to `/api/blocklist/unblock` with `{"ip": "10.10.0.100"}`.
-
-**Q: Why is beaconing severity only medium?**
-Beaconing indicates C2 communication, which is suspicious but not immediately destructive. Medium severity means it generates an alert but does not trigger auto-blocking.
-
-**Q: What is the cooldown?**
-A 15-second window after an alert fires during which the same rule won't re-alert for the same source IP. This prevents alert flooding.
-
-**Q: What happens when you re-run an attack after unblocking?**
-The 15-second cooldown is short enough that the rule will fire again on a fresh attack run. Reset data files for a completely clean slate.
-
-**Q: How does the Events Over Time chart work?**
-SentinelSOAR stores `(timestamp, src_ip)` tuples. The `/api/timeseries` endpoint buckets these by second per IP. The dashboard uses Chart.js to render the line chart with a seekable slider (20–1000 logs).
-
-**Q: What does the flood threshold line on the chart mean?**
-It's a visual reference at 5 events/sec (equivalent to the flooding rule's 50 events in 10 seconds).
-
-**Q: What is the tech stack?**
-Python 3.11, Flask ≥ 3.0, PyYAML, Chart.js 4, Docker Compose. No database — alerts and blocklist are stored as JSON files.
-
-**Q: Can I add a new rule?**
-Yes. Create a new file in `sentinelsoar/rules/`, implement `evaluate(event) → list[alert]`, add it to `rules.yaml`, and register it in `rule_engine.py`.
